@@ -1,0 +1,75 @@
+version: "3"
+services:
+  php:
+    container_name: 'gelapp_laravel'
+    image: php:7.4-fpm-alpine
+    build: 
+      context : './.setup/php/'
+    networks:
+      - gl_net
+      - gl_net_overlay
+    volumes:
+      - ./src/:/var/www/html/
+  apache:
+    container_name: gl_apache
+    image: httpd:2.4-alpine
+    build: './.setup/apache/'
+    hostname: gelapp_laravel
+    depends_on:
+      - php
+      - dnsproxy
+    networks:
+      - gl_net
+      - gl_net_overlay
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./src/:/var/www/html/
+      - ./.setup/apache/docker.apache.conf:/usr/local/apache2/conf.d/docker.apache.conf
+      - ./.setup/apache/logs/:/usr/local/apache2/logs
+  mysql:
+    container_name: 'gl_mysql'
+    hostname: "gl_mysql"
+    image: mysql:5.7
+    volumes:
+      - ./.setup/mysql/data/:/var/lib/mysql/
+    networks:
+      - gl_net
+      - gl_net_overlay
+    environment:
+      - MYSQL_ALLOW_EMPTY_PASSWORD=yes
+    ports:
+      - "3306:3306"
+  phpmyadmin:
+    container_name: 'gl_pma'
+    image: phpmyadmin/phpmyadmin
+    hostname: gl_phpmyadmin
+    environment:
+      MYSQL_ROOT_PASSWORD: ''
+      PMA_HOST: mysql
+    restart: always
+    ports:
+     - 81:80
+    volumes:
+     - /sessions
+    networks:
+      - gl_net
+      - gl_net_overlay
+  dnsproxy:
+    container_name: dns_gelapp_laravel
+    image: defreitas/dns-proxy-server:latest
+    hostname: gelapp_laravel
+    restart: always
+    volumes: 
+      - ./.setup/dns-proxy-server/conf:/app/conf
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /etc/resolv.conf:/etc/resolv.conf
+    ports:
+      - 5380:5380
+
+networks:
+  gl_net:
+    driver: bridge
+  gl_net_overlay:
+    driver: bridge
